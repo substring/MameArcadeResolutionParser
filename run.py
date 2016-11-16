@@ -15,7 +15,12 @@ LOGGING_LEVELS = {  'critical': logging.CRITICAL,
 
 
 class rootClass():
-    
+    def __init__(self, fileName):
+        if not os.path.isfile(fileName):
+            logging.error("{} is not a file".format(fileName))
+            exit(2)
+        self.fullFilePath = fileName
+        
     # Awesome code from http://stackoverflow.com/a/241506
     def commentRemover(self, text):
         def replacer(match):
@@ -35,9 +40,9 @@ class rootClass():
         return re.match(rePattern, self.commentRemover(text.strip()))
         
     # Reads a file, return matching patterns
-    def readFileAndFindPatterns(self, fileName, pattern):
+    def readFileAndFindPatterns(self, pattern):
         result = dict()
-        lines = open (fileName, "r")
+        lines = open (self.fullFilePath, "r")
         for line in lines:
             matches = self.findMatchesFromPattern(pattern, line)
             if matches : result[line] = matches
@@ -47,11 +52,7 @@ class rootClass():
 #
 class Driver(rootClass):
     def __init__(self, file):
-        if not os.path.isfile(file):
-            logging.error("{} is not a file".format(file))
-            exit(2)
-        self.file           = os.path.basename(file)
-        self.fullFilePath   = file
+        rootClass.__init__(self, file)
         self.driver         = os.path.basename(self.fullFilePath)
         self.machines       = dict()
         self.games          = dict()
@@ -77,21 +78,21 @@ class Driver(rootClass):
         return "driver: {}".format(self.driver)
     
     def getMachines(self):
-        matches = self.readFileAndFindPatterns(self.fullFilePath, self.reMACHINE_DRIVER_START)
+        matches = self.readFileAndFindPatterns(self.reMACHINE_DRIVER_START)
         for line, match in matches.iteritems():
             logging.debug("Found {}".format(line.rstrip()))
             machineName=match.group(2).strip()
             logging.info("Adding new machine: {}".format(machineName))
-            self.machines[machineName] = Machine(machineName, self.driver)
+            self.machines[machineName] = Machine(self.fullFilePath, machineName, self.driver)
 
     def getGames(self):
-        matches = self.readFileAndFindPatterns(self.fullFilePath, self.reGAME)
+        matches = self.readFileAndFindPatterns(self.reGAME)
         for line, match in matches.iteritems():
             logging.debug("Found {}".format(line.rstrip()))
             result = match.group(1).split(',')
             map(str.strip, result)
-            year, game, parent, machine, input, yolo, rotation, fullName = result[:8]
-            self.games[game] = Game(game, parent, machine, year, fullName, self.driver, rotation)
+            year, game, parent, machine, input, yolo, rotation, editor, fullName = result[:9]
+            self.games[game] = Game(self.fullFilePath, game, parent, machine, year, fullName, self.driver, rotation, editor, )
             logging.info("New game found: " + str(self.games[game]))
     
     
@@ -101,7 +102,8 @@ class Driver(rootClass):
 # Machine
 #
 class Machine(rootClass):
-    def __init__(self, name, driver):
+    def __init__(self, sourceFile, name, driver):
+        rootClass.__init__(self, sourceFile)
         self.name = name
         self.imported = None
         self.fullPathDriver = driver # path + file name to the driver file
@@ -119,7 +121,8 @@ class Machine(rootClass):
 # Game
 #
 class Game(rootClass):
-    def __init__(self, name, parent='', machine='', year='', fullName='', driver='', rotation=''):
+    def __init__(self, sourceFile, name, parent='', machine='', year='', fullName='', driver='', rotation='', editor=''):
+        rootClass.__init__(self, sourceFile)
         self.name = name
         self.parent = parent
         self.machine = machine
@@ -128,6 +131,7 @@ class Game(rootClass):
         self.driver = driver
         self.rotation = rotation
         self.resolution = None
+        self.editor = ''
         
         logging.debug("Initiating a new game ! " + str(self))
     
@@ -162,10 +166,12 @@ def Tests():
     # ddragon3.c as a machine as a comment
     # namcos22.c has commented GAME(...)
     # 8080bw_drivers.c has some comments between /* ... */ before a game declaration
+    logging.info("Running Tests() ...")
     myDriver = Driver("/home/subs/git/recalbox-build-pi3/output/build/libretro-mame2003-ef38e60fecf12d5edcaea27b048c9ef72271bfa9/src/drivers/namcos22.c")
     #~ myDriver.getMachines() # Already called at construct
     logging.debug(myDriver.machines)
-    myMachine = Machine("sfiii", "/home/subs/git/recalbox-build-pi3/output/build/libretro-mame2003-ef38e60fecf12d5edcaea27b048c9ef72271bfa9/src/drivers/1942.c")
+    myMachine = Machine("/home/subs/git/recalbox-build-pi3/output/build/libretro-mame2003-ef38e60fecf12d5edcaea27b048c9ef72271bfa9/src/drivers/1942.c", "sfiii", "sfiii" )
+    exit(0)
         
 def main(args):
   # print(args)
@@ -173,9 +179,11 @@ def main(args):
   # Check arguments
   if not checkArgs(args) : exit(1)
   
-  Tests()
+  #~ Tests()
   # We're all set
-  # for file in glob.glob(args.)
+  for fileName in glob.glob(args.mamepath + "/*.c"):
+      logging.debug("Parsing {} ...".format(fileName))
+      myDriver = Driver(fileName)
   
   return 0
     
