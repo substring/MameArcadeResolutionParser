@@ -68,7 +68,7 @@ class Driver(rootClass):
         
         # Patterns
         self.reMACHINE_DRIVER_START = "^\s*(static)?\s*MACHINE_DRIVER_START\s*\(\s+(\w+)\s+\)"
-        self.reGAME                 = ".*GAME[BX]{0,2}\((.*\))"
+        self.reGAME                 = ".*GAME[BX]{0,2}\s*\((.*\))"
         
         logging.debug("Initiating a new driver ! " + str(self))
         self.getMachines()
@@ -82,13 +82,16 @@ class Driver(rootClass):
         for line, match in matches.iteritems():
             logging.debug("Found {}".format(line.rstrip()))
             machineName=match.group(2).strip()
-            logging.info("Adding new machine: {}".format(machineName))
+            logging.info("New machine found: {}".format(machineName))
             self.machines[machineName] = Machine(self.fullFilePath, machineName)
 
     def getGames(self):
         matches = self.readFileAndFindPatterns(self.reGAME)
         for line, match in matches.iteritems():
             logging.debug("Found {}".format(line.rstrip()))
+            if re.match(".*GAME_NOT_WORKING.*", line):
+                logging.warning("Non working game ! Not yet accepted '{})".format(line))
+                continue
             result = match.group(1).split(',')
             map(str.strip, result)
             year, game, parent, machine, input, yolo, rotation, editor, fullName = result[:9]
@@ -165,11 +168,13 @@ def Tests():
     # ddragon3.c as a machine as a comment
     # namcos22.c has commented GAME(...)
     # 8080bw_drivers.c has some comments between /* ... */ before a game declaration
+    # xmen.c has GAME GAMEX and non working games
     logging.info("Running Tests() ...")
-    myDriver = Driver("/home/subs/git/recalbox-build-pi3/output/build/libretro-mame2003-ef38e60fecf12d5edcaea27b048c9ef72271bfa9/src/drivers/namcos22.c")
+    
+    myDriver = Driver("/home/subs/git/recalbox-build-pi3/output/build/libretro-mame2003-ef38e60fecf12d5edcaea27b048c9ef72271bfa9/src/drivers/8080bw_drivers.c")
     #~ myDriver.getMachines() # Already called at construct
     logging.debug(myDriver.machines)
-    myMachine = Machine("/home/subs/git/recalbox-build-pi3/output/build/libretro-mame2003-ef38e60fecf12d5edcaea27b048c9ef72271bfa9/src/drivers/1942.c", "sfa3")
+    #~ myMachine = Machine("/home/subs/git/recalbox-build-pi3/output/build/libretro-mame2003-ef38e60fecf12d5edcaea27b048c9ef72271bfa9/src/drivers/1942.c", "sfa3")
     exit(0)
         
 def main(args):
