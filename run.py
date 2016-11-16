@@ -75,7 +75,7 @@ class rootClass():
                 break
             if inSection: 
                 logging.debug("Adding '{}' to the section content".format(line))
-                result.extend(self.cleanLine(line))
+                result.append(self.cleanLine(line))
                 
         return result
                 
@@ -122,7 +122,6 @@ class Driver(rootClass):
                 continue
             result = match.group(1).split(',')
             result = [item.strip() for item in result]
-            logging.debug(result)
             year, game, parent, machine, input, yolo, rotation, editor, fullName = result[:9]
             self.games[game] = Game(self.fullFilePath, game, parent, machine, year, fullName, self.driver, rotation, editor, )
             logging.info("New game found: " + str(self.games[game]))
@@ -140,14 +139,40 @@ class Machine(rootClass):
         self.imported = None
         self.driver = os.path.basename(sourceFile)
         logging.debug("Initiating a new machine ! " + str(self))
-        self.driverData = []
+        self.machineData = []
+        self.machineImport = ''
         self.readMachineFromDriver()
+        self.parseMachine()
     
     def readMachineFromDriver(self):
         # This could have been done in Driver.getMachines() to avoid reading multiple times a same file ... well .. ,evermind
-        driverData = self.readFileAndFindSection(self.machine, self.reMACHINE_DRIVER_START, self.reMACHINE_DRIVER_END)
-        if not driverData : logging.error("Couldn't read data for machine {}".format(self.machine))
-   
+        self.machineData = self.readFileAndFindSection(self.machine, self.reMACHINE_DRIVER_START, self.reMACHINE_DRIVER_END)
+        if not self.machineData : logging.error("Couldn't read data for machine {}".format(self.machine))
+
+    def parseMachine(self):
+        logging.debug("Parsing machine data ...")
+        if not self.machineData : 
+            logging.warning("Couldn't read data for machine {}".format(self.machine))
+            return False
+        for line in self.machineData:
+            logging.debug("Parsing {} ...".format(line))
+            # Import another machine
+            matches = self.findMatchesFromPattern(".*MDRV_IMPORT_FROM\(\s*(\w+)\s*\).*", line)
+            if matches :
+                logging.info("Machine '{}': Found an import pointing to {} !".format(self.machine, matches.group(1)))
+                continue
+            # Screen size
+            matches = self.findMatchesFromPattern(".*MDRV_SCREEN_SIZE\(\s*([0-9xabcde+*]+)\s*,\s*([0-9xabcde+*]+)\)", line)
+            if matches :
+                logging.debug("Machine '{}': Found the screen size  {} x {}".format(self.machine, matches.group(1), matches.group(2)))
+                continue
+            # Visible Area
+            # https://regex101.com/r/YAdAJk/1
+            matches = self.findMatchesFromPattern(".*MDRV_VISIBLE_AREA\(\s*([0-9xabcde+*\-\(\) ]+)\s*,\s*([0-9xabcde+*\-\(\) ]+)\s*,\s*([0-9xabcde+*\-\(\) ]+)\s*,\s*([0-9xabcde+*\-\(\) ]+)\s*\)", line)
+            if matches :
+                logging.info("Machine '{}': Found the visible area {} {} {} {}".format(self.machine, matches.group(1), matches.group(2), matches.group(3), matches.group(4)))
+                continue
+
     def __str__(self):
         return "name: {} - driver: {}".format(self.machine, self.driver)
 
@@ -205,7 +230,7 @@ def Tests():
     # xmen.c has GAME GAMEX and non working games
     logging.info("Running Tests() ...")
     
-    myDriver = Driver("/home/subs/git/recalbox-build-pi3/output/build/libretro-mame2003-ef38e60fecf12d5edcaea27b048c9ef72271bfa9/src/drivers/40love.c")
+    myDriver = Driver("/home/subs/git/recalbox-build-pi3/output/build/libretro-mame2003-ef38e60fecf12d5edcaea27b048c9ef72271bfa9/src/drivers/ddragon3.c")
     #~ myDriver.getMachines() # Already called at construct
     logging.debug(myDriver.machines)
     #~ myMachine = Machine("/home/subs/git/recalbox-build-pi3/output/build/libretro-mame2003-ef38e60fecf12d5edcaea27b048c9ef72271bfa9/src/drivers/1942.c", "sfa3")
@@ -217,7 +242,7 @@ def main(args):
   # Check arguments
   if not checkArgs(args) : exit(1)
   
-  #~ Tests()
+  Tests()
   # We're all set
   for fileName in glob.glob(args.mamepath + "/*.c"):
       logging.debug("Parsing {} ...".format(fileName))
