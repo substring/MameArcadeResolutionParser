@@ -83,7 +83,7 @@ class Driver(rootClass):
             logging.debug("Found {}".format(line.rstrip()))
             machineName=match.group(2).strip()
             logging.info("Adding new machine: {}".format(machineName))
-            self.machines[machineName] = Machine(self.fullFilePath, machineName, self.driver)
+            self.machines[machineName] = Machine(self.fullFilePath, machineName)
 
     def getGames(self):
         matches = self.readFileAndFindPatterns(self.reGAME)
@@ -102,12 +102,11 @@ class Driver(rootClass):
 # Machine
 #
 class Machine(rootClass):
-    def __init__(self, sourceFile, name, driver):
+    def __init__(self, sourceFile, name):
         rootClass.__init__(self, sourceFile)
         self.name = name
         self.imported = None
-        self.fullPathDriver = driver # path + file name to the driver file
-        self.driver = os.path.basename(driver)
+        self.driver = os.path.basename(sourceFile)
         logging.debug("Initiating a new machine ! " + str(self))
     
         #~ def readData
@@ -170,7 +169,7 @@ def Tests():
     myDriver = Driver("/home/subs/git/recalbox-build-pi3/output/build/libretro-mame2003-ef38e60fecf12d5edcaea27b048c9ef72271bfa9/src/drivers/namcos22.c")
     #~ myDriver.getMachines() # Already called at construct
     logging.debug(myDriver.machines)
-    myMachine = Machine("/home/subs/git/recalbox-build-pi3/output/build/libretro-mame2003-ef38e60fecf12d5edcaea27b048c9ef72271bfa9/src/drivers/1942.c", "sfiii", "sfiii" )
+    myMachine = Machine("/home/subs/git/recalbox-build-pi3/output/build/libretro-mame2003-ef38e60fecf12d5edcaea27b048c9ef72271bfa9/src/drivers/1942.c", "sfa3")
     exit(0)
         
 def main(args):
