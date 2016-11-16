@@ -20,6 +20,11 @@ class rootClass():
             logging.error("{} is not a file".format(fileName))
             exit(2)
         self.fullFilePath = fileName
+        # Patterns
+        # Machine patterns
+        self.reMACHINE_DRIVER_START = "^\s*(static)?\s*MACHINE_DRIVER_START\s*\(\s+(\w+)\s+\)"
+        self.reMACHINE_DRIVER_END   = "^MACHINE_DRIVER_END$"
+        self.reGAME                 = ".*GAME[BX]{0,2}\s*\((.*\))"
         
     # Awesome code from http://stackoverflow.com/a/241506
     def commentRemover(self, text):
@@ -35,6 +40,10 @@ class rootClass():
         )
         return re.sub(pattern, replacer, text)
         
+    # strips and remove comments
+    def cleanLine(self, text):
+        return self.commentRemover(text).strip()
+        
     # strips and remove comments, then return the matching groups
     def findMatchesFromPattern(self, rePattern, text):
         return re.match(rePattern, self.commentRemover(text.strip()))
@@ -47,6 +56,29 @@ class rootClass():
             matches = self.findMatchesFromPattern(pattern, line)
             if matches : result[line] = matches
         return result
+    
+    # Reads a section, returns cleaned lines
+    def readFileAndFindSection(self, sectionParam, sectionStart, sectionStop):
+        result = []
+        inSection = False
+        lines = open (self.fullFilePath, "r")
+        for line in lines:
+            line = self.cleanLine(line)
+            # Skip empty lines
+            if not line : continue
+            if sectionParam in line and self.findMatchesFromPattern(sectionStart, line):
+                logging.debug("Found section name {} !".format(sectionParam))
+                inSection = True
+                continue
+            if inSection and self.findMatchesFromPattern(sectionStop, line):
+                logging.debug("Found section end of {} !".format(sectionParam))
+                break
+            if inSection: 
+                logging.debug("Adding '{}' to the section content".format(line))
+                result.extend(self.cleanLine(line))
+                
+        return result
+                
 #
 # Driver
 #
@@ -65,10 +97,6 @@ class Driver(rootClass):
         self.visibleY   = 0
         self.areaY      = 0
         self.offsetY    = 0
-        
-        # Patterns
-        self.reMACHINE_DRIVER_START = "^\s*(static)?\s*MACHINE_DRIVER_START\s*\(\s+(\w+)\s+\)"
-        self.reGAME                 = ".*GAME[BX]{0,2}\s*\((.*\))"
         
         logging.debug("Initiating a new driver ! " + str(self))
         self.getMachines()
@@ -93,7 +121,8 @@ class Driver(rootClass):
                 logging.warning("Non working game ! Not yet accepted '{})".format(line))
                 continue
             result = match.group(1).split(',')
-            map(str.strip, result)
+            result = [item.strip() for item in result]
+            logging.debug(result)
             year, game, parent, machine, input, yolo, rotation, editor, fullName = result[:9]
             self.games[game] = Game(self.fullFilePath, game, parent, machine, year, fullName, self.driver, rotation, editor, )
             logging.info("New game found: " + str(self.games[game]))
@@ -107,15 +136,20 @@ class Driver(rootClass):
 class Machine(rootClass):
     def __init__(self, sourceFile, name):
         rootClass.__init__(self, sourceFile)
-        self.name = name
+        self.machine = name
         self.imported = None
         self.driver = os.path.basename(sourceFile)
         logging.debug("Initiating a new machine ! " + str(self))
+        self.driverData = []
+        self.readMachineFromDriver()
     
-        #~ def readData
+    def readMachineFromDriver(self):
+        # This could have been done in Driver.getMachines() to avoid reading multiple times a same file ... well .. ,evermind
+        driverData = self.readFileAndFindSection(self.machine, self.reMACHINE_DRIVER_START, self.reMACHINE_DRIVER_END)
+        if not driverData : logging.error("Couldn't read data for machine {}".format(self.machine))
    
     def __str__(self):
-        return "name: {} - driver: {}".format(self.name, self.driver)
+        return "name: {} - driver: {}".format(self.machine, self.driver)
 
     __repr__ = __str__
     
@@ -140,7 +174,7 @@ class Game(rootClass):
 
    
     def __str__(self):
-        return "name: {} - parent: {} - rotation: {}".format(self.name, self.parent, self.rotation)
+        return "name: '{}' - parent: '{}' - rotation: '{}'".format(self.name, self.parent, self.rotation)
 
     __repr__ = __str__
     
@@ -171,7 +205,7 @@ def Tests():
     # xmen.c has GAME GAMEX and non working games
     logging.info("Running Tests() ...")
     
-    myDriver = Driver("/home/subs/git/recalbox-build-pi3/output/build/libretro-mame2003-ef38e60fecf12d5edcaea27b048c9ef72271bfa9/src/drivers/8080bw_drivers.c")
+    myDriver = Driver("/home/subs/git/recalbox-build-pi3/output/build/libretro-mame2003-ef38e60fecf12d5edcaea27b048c9ef72271bfa9/src/drivers/40love.c")
     #~ myDriver.getMachines() # Already called at construct
     logging.debug(myDriver.machines)
     #~ myMachine = Machine("/home/subs/git/recalbox-build-pi3/output/build/libretro-mame2003-ef38e60fecf12d5edcaea27b048c9ef72271bfa9/src/drivers/1942.c", "sfa3")
