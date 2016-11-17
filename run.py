@@ -90,14 +90,6 @@ class Driver(rootClass):
         self.games          = dict()
         self.importMachine  = None      # if the machine imports another one
         
-        # Resolution stuff
-        self.visibleX   = 0
-        self.areaX      = 0
-        self.offsetX    = 0
-        self.visibleY   = 0
-        self.areaY      = 0
-        self.offsetY    = 0
-        
         logging.debug("Initiating a new driver ! " + str(self))
         self.getMachines()
         self.getGames()
@@ -139,7 +131,17 @@ class Machine(rootClass):
         self.imported = None
         self.driver = os.path.basename(sourceFile)
         logging.debug("Initiating a new machine ! " + str(self))
+        # Resolution stuff
+        self.visibleX   = 0
+        self.areaX      = 0
+        self.offsetX    = 0
+        self.finalX     = 0
+        self.visibleY   = 0
+        self.areaY      = 0
+        self.offsetY    = 0
+        self.finalY     = 0
         self.machineData = []
+        
         self.machineImport = ''
         self.readMachineFromDriver()
         self.parseMachine()
@@ -164,15 +166,40 @@ class Machine(rootClass):
             # Screen size
             matches = self.findMatchesFromPattern(".*MDRV_SCREEN_SIZE\(\s*([0-9xabcde+*]+)\s*,\s*([0-9xabcde+*]+)\)", line)
             if matches :
-                logging.debug("Machine '{}': Found the screen size  {} x {}".format(self.machine, matches.group(1), matches.group(2)))
+                self.visibleX = self.evaluate(matches.group(1))
+                self.visibleY = self.evaluate(matches.group(2))
+                logging.info("Machine '{}': Found the screen size  {} x {}".format(self.machine, self.visibleX, self.visibleY))
                 continue
             # Visible Area
             # https://regex101.com/r/YAdAJk/1
             matches = self.findMatchesFromPattern(".*MDRV_VISIBLE_AREA\(\s*([0-9xabcde+*\-\(\) ]+)\s*,\s*([0-9xabcde+*\-\(\) ]+)\s*,\s*([0-9xabcde+*\-\(\) ]+)\s*,\s*([0-9xabcde+*\-\(\) ]+)\s*\)", line)
             if matches :
-                logging.info("Machine '{}': Found the visible area {} {} {} {}".format(self.machine, matches.group(1), matches.group(2), matches.group(3), matches.group(4)))
+                self.offsetX    = self.evaluate(matches.group(1))
+                self.areaX      = self.evaluate(matches.group(2))
+                self.offsetY    = self.evaluate(matches.group(3))
+                self.areaY      = self.evaluate(matches.group(4))
+                self.finalX     = self.resolutionRound(self.areaX - self.offsetX)
+                self.finalY     = self.resolutionRound(self.areaY - self.offsetY)
+                logging.info("Machine '{}': Found the visible area {} {} {} {} ! Machine resolution is {}x{}".format(self.machine, self.offsetX, self.areaX, self.offsetY, self.areaY, self.finalX, self.finalY))
                 continue
-
+    
+    def evaluate(self, value):
+        if re.match("^[0-9x+*\-\(\)]+$", value):
+            return eval(value)
+        else:
+            logging.warning("Couldn't eval {}".value)
+            return None
+    def resolutionRound(self, number):
+        if (number + 1) %2 == 0: return number + 1
+        else: return number
+    def convHex2Int(self, hexStr):
+        if re.match("^0x\d+$", hexStr):
+            return int(hexStr, 16)
+        else:
+            return False
+            
+    
+    
     def __str__(self):
         return "name: {} - driver: {}".format(self.machine, self.driver)
 
@@ -233,7 +260,8 @@ def Tests():
     myDriver = Driver("/home/subs/git/recalbox-build-pi3/output/build/libretro-mame2003-ef38e60fecf12d5edcaea27b048c9ef72271bfa9/src/drivers/ddragon3.c")
     #~ myDriver.getMachines() # Already called at construct
     logging.debug(myDriver.machines)
-    #~ myMachine = Machine("/home/subs/git/recalbox-build-pi3/output/build/libretro-mame2003-ef38e60fecf12d5edcaea27b048c9ef72271bfa9/src/drivers/1942.c", "sfa3")
+    myMachine = Machine("/home/subs/git/recalbox-build-pi3/output/build/libretro-mame2003-ef38e60fecf12d5edcaea27b048c9ef72271bfa9/src/drivers/1942.c", "sfa3")
+    #~ print myMachine.convHex2Int("0x100")
     exit(0)
         
 def main(args):
@@ -242,7 +270,7 @@ def main(args):
   # Check arguments
   if not checkArgs(args) : exit(1)
   
-  Tests()
+  #~ Tests()
   # We're all set
   for fileName in glob.glob(args.mamepath + "/*.c"):
       logging.debug("Parsing {} ...".format(fileName))
