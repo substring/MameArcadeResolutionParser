@@ -166,37 +166,44 @@ class Machine(rootClass):
             # Screen size
             matches = self.findMatchesFromPattern(".*MDRV_SCREEN_SIZE\(\s*([0-9xabcde+*]+)\s*,\s*([0-9xabcde+*]+)\)", line)
             if matches :
-                self.visibleX = self.evaluate(matches.group(1))
-                self.visibleY = self.evaluate(matches.group(2))
+                self.visibleX = self.evaluate(matches.group(1).strip())
+                self.visibleY = self.evaluate(matches.group(2).strip())
                 logging.info("Machine '{}': Found the screen size  {} x {}".format(self.machine, self.visibleX, self.visibleY))
                 continue
             # Visible Area
             # https://regex101.com/r/YAdAJk/1
             matches = self.findMatchesFromPattern(".*MDRV_VISIBLE_AREA\(\s*([0-9xabcde+*\-\(\) ]+)\s*,\s*([0-9xabcde+*\-\(\) ]+)\s*,\s*([0-9xabcde+*\-\(\) ]+)\s*,\s*([0-9xabcde+*\-\(\) ]+)\s*\)", line)
             if matches :
-                self.offsetX    = self.evaluate(matches.group(1))
-                self.areaX      = self.evaluate(matches.group(2))
-                self.offsetY    = self.evaluate(matches.group(3))
-                self.areaY      = self.evaluate(matches.group(4))
-                self.finalX     = self.resolutionRound(self.areaX - self.offsetX)
-                self.finalY     = self.resolutionRound(self.areaY - self.offsetY)
+                self.offsetX    = self.evaluate(matches.group(1).strip())
+                self.areaX      = self.evaluate(matches.group(2).strip())
+                self.offsetY    = self.evaluate(matches.group(3).strip())
+                self.areaY      = self.evaluate(matches.group(4).strip())
+                self.finalX     = self.resolutionRound(int(self.areaX) - int(self.offsetX))
+                self.finalY     = self.resolutionRound(int(self.areaY) - int(self.offsetY))
                 logging.info("Machine '{}': Found the visible area {} {} {} {} ! Machine resolution is {}x{}".format(self.machine, self.offsetX, self.areaX, self.offsetY, self.areaY, self.finalX, self.finalY))
                 continue
     
     def evaluate(self, value):
-        if re.match("^[0-9x+*\-\(\)]+$", value):
+        value = self.convHex2Int(value)
+        if not value:
+            logging.debug("{} is not a value".format(value))
+            return None
+        if re.match("^[0-9xabcedf+* \-\(\)]+$", value):
             return eval(value)
         else:
-            logging.warning("Couldn't eval {}".value)
+            logging.warning("Couldn't eval {}".format(value))
             return None
+            
     def resolutionRound(self, number):
         if (number + 1) %2 == 0: return number + 1
         else: return number
-    def convHex2Int(self, hexStr):
-        if re.match("^0x\d+$", hexStr):
-            return int(hexStr, 16)
+        
+    def convHex2Int(self, value):
+        if re.match("^0x\d+$", value):
+            logging.debug("{} is a hex value".format(value))
+            return str(int(value, 16))
         else:
-            return False
+            return value
             
     
     
@@ -255,12 +262,13 @@ def Tests():
     # namcos22.c has commented GAME(...)
     # 8080bw_drivers.c has some comments between /* ... */ before a game declaration
     # xmen.c has GAME GAMEX and non working games
+    # lazercmd.c has CONST values for VISIBLE_AREA and SCREEN_SIZE
     logging.info("Running Tests() ...")
     
-    myDriver = Driver("/home/subs/git/recalbox-build-pi3/output/build/libretro-mame2003-ef38e60fecf12d5edcaea27b048c9ef72271bfa9/src/drivers/ddragon3.c")
-    #~ myDriver.getMachines() # Already called at construct
+    myDriver = Driver("/home/subs/git/recalbox-build-pi3/output/build/libretro-mame2003-ef38e60fecf12d5edcaea27b048c9ef72271bfa9/src/drivers/lazercmd.c")
+    myDriver.getMachines() # Already called at construct
     logging.debug(myDriver.machines)
-    myMachine = Machine("/home/subs/git/recalbox-build-pi3/output/build/libretro-mame2003-ef38e60fecf12d5edcaea27b048c9ef72271bfa9/src/drivers/1942.c", "sfa3")
+    myMachine = Machine("/home/subs/git/recalbox-build-pi3/output/build/libretro-mame2003-ef38e60fecf12d5edcaea27b048c9ef72271bfa9/src/drivers/realbrk.c", "realbrk")
     #~ print myMachine.convHex2Int("0x100")
     exit(0)
         
