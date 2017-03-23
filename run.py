@@ -181,9 +181,13 @@ class Driver(rootClass):
             if re.match(".*GAME_NOT_WORKING.*", line):
                 logging.warning("Non working game ! Not yet accepted '{})".format(line))
                 continue
+            gameb = match.group(0)
             result = match.group(1).split(',')
             result = [item.strip() for item in result]
-            year, game, parent, machine, input, yolo, rotation, editor, fullName = result[:9]
+            if "GAMEB" in gameb:
+                year, game, parent, machine, input, yolo, yolo, rotation, editor, fullName = result[:10]
+            else:
+                year, game, parent, machine, input, yolo, rotation, editor, fullName = result[:9]
             self.games[game] = Game(self.fullFilePath, game, parent, machine, year, fullName, self.driver, rotation, editor, )
             logging.info("New game found: " + str(self.games[game]))
     
@@ -321,9 +325,6 @@ class Game(rootClass):
     
 def signal_handler(signal, frame):
     print('User forced exit')
-    if runner.proc:
-        print('killing runner.proc')
-        runner.proc.kill()
     exit(1)
 
 #
@@ -377,9 +378,9 @@ def Tests():
     # midvunit.c : midvunit machine has 2 imports with sub-imports
     logging.info("Running Tests() ...")
     
-    myDriver = Driver("/home/subs/git/recalbox-build-pi3/output/build/libretro-mame2003-ef38e60fecf12d5edcaea27b048c9ef72271bfa9/src/drivers/itech32.c")
+    myDriver = Driver("/home/subs/git/recalbox-build-pi3/output/build/libretro-mame2003-686bda7f8daa95f524dd86ca0d81b3176e3ce2d3//src/drivers/itech32.c")
     logging.debug(myDriver.machines)
-    # myMachine = Machine("/home/subs/git/recalbox-build-pi3/output/build/libretro-mame2003-ef38e60fecf12d5edcaea27b048c9ef72271bfa9/src/drivers/boxer.c", "boxer")
+    # myMachine = Machine("/home/subs/git/recalbox-build-pi3/output/build/libretro-mame2003-686bda7f8daa95f524dd86ca0d81b3176e3ce2d3//src/drivers/boxer.c", "boxer")
     #~ print myMachine.convHex2Int("0x100")
     exit(0)
         
@@ -422,7 +423,7 @@ def main(args):
         if resolution is None:
             print "Couldn't find resolution for {}/{}({})".format(gameData.driver, gameName, gameData.machine)
         else:
-            print "{}/{} has a resolution of {}".format(gameName, gameData.driver, resolution)
+            print "{}/{} has a resolution of {}, rotation: {}".format(gameName, gameData.driver, resolution, gameData.rotation)
     return 0
     
 if __name__ == '__main__':
